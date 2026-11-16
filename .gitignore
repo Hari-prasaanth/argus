@@ -1,0 +1,7 @@
+workspaces/
+!workspaces/.gitkeep
+schedules.json
+__pycache__/
+*.pyc
+.DS_Store
+module_results/

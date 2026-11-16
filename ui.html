@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Argus — Network Recon &amp; Scan Console</title>
+<style>
+:root{--bg:#0a0e17;--pan:#0f1623;--pan2:#131c2e;--pan3:#18223a;--bd:#1e2d47;
+--fg:#c8d8f0;--mut:#7a90b0;--cyn:#00d4ff;--grn:#00ff88;--yel:#ffd600;--red:#ff4757;--org:#ff6b35;}
+body[data-theme="light"]{--bg:#eef2f8;--pan:#ffffff;--pan2:#f5f8fc;--pan3:#e8eef7;--bd:#d2dbe8;
+--fg:#1a2433;--mut:#5b6b82;--cyn:#0077b6;--grn:#009e5c;--yel:#b8860b;--red:#d7263d;--org:#d2691e;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font:13.5px/1.55 ui-monospace,Menlo,Consolas,monospace;display:flex;min-height:100vh}
+a{color:var(--cyn);text-decoration:none}
+.side{width:208px;background:var(--pan);border-right:1px solid var(--bd);flex-shrink:0;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;transition:width .18s ease;overflow:hidden}
+.brand{padding:18px 16px 14px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:9px;white-space:nowrap}
+.brand .logo{color:var(--cyn);font-size:16px}
+.brand b{color:var(--cyn);font-size:16px;letter-spacing:2px}
+.nav{padding:10px 0;flex:1}
+.nav a{display:flex;align-items:center;gap:12px;padding:10px 18px;color:var(--mut);cursor:pointer;border-left:2px solid transparent;font-size:13px;white-space:nowrap}
+.nav a:hover{color:var(--fg);background:#8881}
+.nav a.on{color:var(--cyn);border-left-color:var(--cyn);background:#00d4ff14}
+.nav .ic{width:16px;text-align:center;flex-shrink:0}
+.side .foot{padding:12px 16px;border-top:1px solid var(--bd);color:var(--mut);font-size:10px}
+/* live system meters */
+.meter{display:flex;align-items:center;gap:8px;margin:6px 0}
+.meter .ml{width:34px;color:var(--mut);font-size:9px;letter-spacing:.5px}
+.meter .mbar{flex:1;height:6px;background:#8882;border-radius:3px;overflow:hidden}
+.meter .mbar>i{display:block;height:100%;width:0;border-radius:3px;transition:width .4s,background .4s}
+.meter .mv{width:34px;text-align:right;color:var(--fg);font-size:10px;font-variant-numeric:tabular-nums}
+.foot .fhdr{font-size:9px;letter-spacing:1px;color:var(--mut);text-transform:uppercase;margin-bottom:6px}
+/* collapsed rail */
+body.nav-collapsed .side{width:52px}
+body.nav-collapsed .brand b,body.nav-collapsed .nav a .lbl,
+body.nav-collapsed .foot .ml,body.nav-collapsed .foot .mv,body.nav-collapsed .foot .fhdr{display:none}
+body.nav-collapsed .nav a{justify-content:center;padding:10px 0;gap:0}
+body.nav-collapsed .brand{justify-content:center;padding:18px 0 14px}
+body.nav-collapsed .foot{padding:12px 10px}
+body.nav-collapsed .meter{gap:0}
+.burger{font-size:15px;line-height:1}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--mut)}
+.dot.up{background:var(--grn);animation:blink 1.1s ease-in-out infinite;box-shadow:0 0 6px var(--grn)}
+.dot.down{background:var(--red)} .dot.ok{background:var(--grn);box-shadow:0 0 4px var(--grn)}
+.dot.bad{background:var(--red)} .dot.warn{background:var(--yel)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{padding:13px 26px;border-bottom:1px solid var(--bd);background:var(--pan);display:flex;align-items:center;gap:14px}
+.top h1{font-size:16px;font-weight:700}
+.top .sp{flex:1}
+.top .live{display:flex;align-items:center;gap:7px;color:var(--mut);font-size:11px}
+.iconbtn{background:var(--pan3);border:1px solid var(--bd);color:var(--fg);border-radius:6px;padding:6px 11px;cursor:pointer;font:inherit;font-size:13px}
+.iconbtn:hover{border-color:var(--cyn)}
+.wrap{padding:22px 26px;flex:1}
+.hide{display:none!important}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+.tile{background:var(--pan2);border:1px solid var(--bd);border-radius:10px;padding:15px 17px}
+.tile .n{font-size:26px;font-weight:800;color:var(--cyn)}
+.tile .l{color:var(--mut);font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-top:3px}
+.panel{background:var(--pan2);border:1px solid var(--bd);border-radius:10px;padding:18px;margin-bottom:16px}
+.panel h2{font-size:13px;color:var(--yel);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--bd)}
+label{display:block;color:var(--mut);font-size:11px;margin:12px 0 5px;text-transform:uppercase;letter-spacing:.5px}
+input,select,textarea{width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:6px;padding:8px 10px;font:inherit;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--cyn)}
+textarea{resize:vertical;min-height:120px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.row>div{flex:1;min-width:140px}
+.inline{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+.chk{display:flex;align-items:center;gap:7px;color:var(--fg);font-size:12.5px;cursor:pointer;width:auto}
+.chk input{width:auto}
+button{background:var(--pan3);color:var(--fg);border:1px solid var(--bd);border-radius:6px;padding:9px 18px;cursor:pointer;font:inherit}
+button:hover{border-color:var(--cyn)}
+button.pri{background:var(--grn);color:#042014;border-color:var(--grn);font-weight:700}
+body[data-theme="light"] button.pri{color:#fff}
+button.pri:hover{filter:brightness(1.08)}
+button:disabled{opacity:.6;cursor:not-allowed}
+button.busy{background:var(--cyn)!important;color:#042014!important;border-color:var(--cyn)!important;animation:pulse 1.1s infinite}
+button.sm{padding:5px 11px;font-size:11px}
+button.danger:hover{border-color:var(--red);color:var(--red)}
+.seg{display:inline-flex;border:1px solid var(--bd);border-radius:8px;overflow:hidden;margin-bottom:6px}
+.seg button{border:none;border-radius:0;background:transparent;color:var(--mut)}
+.seg button.on{background:var(--cyn);color:#042014;font-weight:700}
+body[data-theme="light"] .seg button.on{color:#fff}
+.term{background:#05080d;border:1px solid var(--bd);border-radius:8px;padding:12px;height:360px;overflow:auto;white-space:pre-wrap;font-size:12.5px}
+body[data-theme="light"] .term{background:#0a0e17}
+.term .v{color:var(--red)} .term .s{color:var(--mut)} .term .h{color:var(--grn)} .term .f{color:var(--yel);padding-left:18px} .term .l{color:var(--cyn)}
+.bar{height:6px;background:#8882;border-radius:4px;overflow:hidden;margin:12px 0}
+.bar>i{display:block;height:100%;width:0;background:var(--cyn);transition:width .2s}
+.jobhead{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid var(--bd)}
+.statuswrap{display:flex;align-items:center;gap:10px}
+.statusbig{font-size:22px;font-weight:800;letter-spacing:1px}
+.statusdot{width:14px;height:14px;border-radius:50%;background:var(--mut)}
+.st-running .statusbig{color:var(--cyn)} .st-running .statusdot{background:var(--cyn);animation:blink 1s infinite;box-shadow:0 0 8px var(--cyn)}
+.st-paused .statusbig{color:var(--yel)} .st-paused .statusdot{background:var(--yel);box-shadow:0 0 8px var(--yel)}
+.st-done .statusbig{color:var(--grn)} .st-done .statusdot{background:var(--grn);box-shadow:0 0 8px var(--grn)}
+.st-stopped .statusbig{color:var(--red)} .st-stopped .statusdot{background:var(--red)}
+.st-error .statusbig{color:var(--red)} .st-error .statusdot{background:var(--red);animation:blink 1s infinite}
+.st-queued .statusbig{color:var(--mut)}
+.jobtimes{display:flex;flex-direction:column;font-size:13px}
+.jobtimes b{font-weight:700;color:var(--fg)}
+.jobctl{margin-left:auto;display:flex;gap:8px}
+.stage{margin:8px 0}
+.stagerow{display:flex;align-items:center;gap:10px;font-size:12px;margin-bottom:3px}
+.stagerow .snm{min-width:120px;color:var(--fg)}
+.stagerow .sst{font-size:9px;padding:1px 7px;border-radius:9px;text-transform:uppercase;font-weight:700}
+.sst.running{background:#00d4ff22;color:var(--cyn)} .sst.done{background:#00ff8822;color:var(--grn)}
+.sst.pending{background:#7a90b022;color:var(--mut)} .sst.skipped{background:#7a90b022;color:var(--mut)}
+.sst.stopped,.sst.error{background:#ff475722;color:var(--red)}
+.stagerow .scount{margin-left:auto;color:var(--mut);font-size:11px}
+.stbar{height:5px;background:#8882;border-radius:3px;overflow:hidden}
+.stbar>i{display:block;height:100%;width:0;background:var(--cyn);transition:width .3s}
+.stbar.done>i{background:var(--grn)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;color:var(--mut);font-size:10px;text-transform:uppercase;letter-spacing:1px;padding:7px 10px;border-bottom:1px solid var(--bd)}
+td{padding:8px 10px;border-bottom:1px solid #8883}
+tr:hover td{background:#8881}
+.pill{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700}
+.p-running{background:#00d4ff20;color:var(--cyn);border:1px solid var(--cyn)}
+.p-paused{background:#ffd60020;color:var(--yel);border:1px solid var(--yel)}
+.p-done{background:#00ff8820;color:var(--grn);border:1px solid var(--grn)}
+.p-stopped{background:#ff475720;color:var(--red);border:1px solid var(--red)}
+.p-error{background:#ff475720;color:var(--red);border:1px solid var(--red)}
+.p-queued{background:#7a90b020;color:var(--mut);border:1px solid var(--mut)}
+.tag{display:inline-block;font-size:10px;color:var(--mut);border:1px solid var(--bd);border-radius:4px;padding:1px 6px;margin:2px}
+.muted{color:var(--mut)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
+.cell{display:flex;align-items:center;gap:9px;background:var(--pan);border:1px solid var(--bd);border-radius:7px;padding:8px 11px;font-size:12px}
+.cell .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cell .id{color:var(--cyn);font-weight:700;min-width:22px}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.shot{background:var(--pan);border:1px solid var(--bd);border-radius:8px;overflow:hidden}
+.shot img{width:100%;display:block;background:#000;cursor:pointer}
+.shot.r-high{border-color:var(--red)}
+.shotmeta{padding:7px 10px;font-size:11px;border-top:1px solid var(--bd)}
+.shotmeta .su{color:var(--fg);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shotmeta .su .port{color:var(--yel)}
+.shotmeta .sp{color:var(--grn);font-size:10px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shotmeta .st{display:flex;justify-content:space-between;align-items:center;margin-top:4px}
+.sch{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;text-transform:uppercase}
+.sch.https{background:#00ff8822;color:var(--grn)} .sch.http{background:#7a90b022;color:var(--mut)}
+.tool{font-size:9px;color:var(--mut);border:1px solid var(--bd);border-radius:3px;padding:1px 5px}
+.shotgrouphdr{font-size:12px;color:var(--cyn);font-weight:700;margin:16px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--bd);letter-spacing:.5px}
+.bars{display:flex;flex-direction:column;gap:5px}
+.barrow{display:flex;align-items:center;gap:8px;font-size:11px}
+.barrow .bk{min-width:64px;color:var(--mut);text-align:right}
+.barrow .bt{flex:1;height:10px;background:#8882;border-radius:3px;overflow:hidden}
+.barrow .bt>i{display:block;height:100%;border-radius:3px}
+.barrow .bv{min-width:22px;color:var(--fg)}
+iframe.dash{width:100%;height:70vh;border:1px solid var(--bd);border-radius:8px;background:var(--bg)}
+.notice{color:var(--grn);font-size:12px;margin-top:10px;min-height:16px}
+.hintrow{font-size:11px;color:var(--mut);margin-top:6px}
+.lightbox{position:fixed;inset:0;background:#000d;display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+.lightbox.on{display:flex} .lightbox img{max-width:95%;max-height:95%;border:1px solid var(--cyn)}
+.ta{position:relative}
+.ta-dd{position:absolute;top:100%;left:0;right:0;background:var(--pan);border:1px solid var(--cyn);border-radius:6px;margin-top:3px;max-height:230px;overflow:auto;z-index:20;display:none}
+.ta-dd.on{display:block}
+.ta-dd div{padding:7px 11px;cursor:pointer;font-size:12.5px}
+.ta-dd div:hover{background:#00d4ff22;color:var(--cyn)}
+.ta-dd .zone{color:var(--mut);font-size:10px;margin-left:6px}
+.warnbox{background:#ff475714;border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px}
+.okbox{background:#00ff8814;border:1px solid var(--grn);color:var(--grn);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px}
+/* dashboard two-column */
+.dash2{display:grid;grid-template-columns:270px 1fr;gap:16px;align-items:start}
+.scanlist{display:flex;flex-direction:column;gap:6px}
+.scanitem{background:var(--pan);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;cursor:pointer}
+.scanitem:hover{border-color:var(--cyn)}
+.scanitem.on{border-color:var(--cyn);background:#00d4ff10}
+.scanitem .nm{font-size:12.5px;color:var(--fg);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scanitem .sub{font-size:10.5px;color:var(--mut);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scanitem .mt{display:flex;align-items:center;gap:6px;margin-top:5px}
+.scanlist .scanitem{padding:12px 14px}
+.back,.alllink{color:var(--cyn);cursor:pointer;font-size:12px;display:inline-block;margin-bottom:4px}
+.back:hover,.alllink:hover{text-decoration:underline}
+/* animated recon board */
+.board{height:auto;max-height:420px;padding:14px 16px}
+.brow{display:grid;grid-template-columns:22px minmax(140px,1.4fr) 90px minmax(120px,1.6fr) 90px 24px;gap:10px;align-items:center;padding:4px 6px;border-radius:5px;cursor:pointer;font-size:13px}
+.brow .hup{color:var(--grn);font-size:11px}
+.brow .bdel{text-align:center;opacity:0;transition:opacity .15s;font-size:12px}
+.brow:hover .bdel{opacity:.7}
+.brow .bdel:hover{opacity:1;filter:brightness(1.3)}
+.brow:hover{background:#ffffff0a}
+.brow.bhdr{cursor:default;color:var(--mut);border-bottom:1px solid var(--bd);margin-bottom:6px;padding-bottom:8px}
+.brow.bhdr:hover{background:none}
+.brow .bg{text-align:center;font-weight:700}
+.brow .bsn{color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brow .bsl{color:var(--mut);font-size:11px}
+.brow .bst{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brow .bel{color:var(--mut);text-align:right;font-variant-numeric:tabular-nums}
+.bg.g-run{color:var(--cyn)} .bg.g-done{color:var(--grn)} .bg.g-pause{color:var(--yel)}
+.bg.g-err{color:var(--red)} .bg.g-queue{color:var(--mut)}
+.bst.bs-running{color:var(--cyn)} .bst.bs-done{color:var(--grn)} .bst.bs-paused{color:var(--yel)}
+.bst.bs-stopped,.bst.bs-error{color:var(--red)} .bst.bs-queued{color:var(--mut)}
+@media(max-width:860px){.dash2{grid-template-columns:1fr}}
+</style></head><body data-theme="dark">
+
+<div class="side">
+  <div class="brand"><span class="logo">◆</span><b>ARGUS</b></div>
+  <div class="nav" id="nav">
+    <a data-v="dashboard" class="on"><span class="ic">▦</span><span class="lbl">Dashboard</span></a>
+    <a data-v="preflight"><span class="ic">✦</span><span class="lbl">Preflight</span></a>
+    <a data-v="newscan"><span class="ic">+</span><span class="lbl">New Scan</span></a>
+    <a data-v="trash"><span class="ic">🗑</span><span class="lbl">Trash</span></a>
+  </div>
+  <div class="foot" id="sysfoot">
+    <div class="fhdr">System</div>
+    <div class="meter"><span class="ml">CPU</span><div class="mbar"><i id="cpuBar"></i></div><span class="mv" id="cpuVal">–</span></div>
+    <div class="meter"><span class="ml">RAM</span><div class="mbar"><i id="memBar"></i></div><span class="mv" id="memVal">–</span></div>
+    <div class="meter"><span class="ml">LOAD</span><div class="mbar"><i id="loadBar"></i></div><span class="mv" id="loadVal">–</span></div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="top"><button class="iconbtn burger" id="burger" title="Toggle sidebar">☰</button>
+    <h1 id="vtitle">Dashboard</h1><div class="sp"></div>
+    <span class="live"><span class="dot" id="liveDot"></span><span id="liveTxt">connecting…</span></span>
+    <button class="iconbtn" id="themeBtn" title="Toggle light / dark">☾</button>
+    <span class="muted" id="clock"></span></div>
+  <div class="wrap">
+
+    <!-- DASHBOARD = recon hub -->
+    <section id="v-dashboard">
+      <!-- LIST VIEW -->
+      <div id="dashList">
+        <div class="tiles" id="dMetrics"></div>
+        <div class="panel">
+          <h2>Live recon board</h2>
+          <div class="term board" id="dBoard"><div class="muted">No recon scans yet. Start one from New Scan.</div></div>
+          <div style="margin-top:12px"><span class="alllink" onclick="dashOpen('all')">⊕ All subnets — combined view →</span></div>
+        </div>
+        <div class="panel" id="schedPanel"><h2>Scheduled recon</h2><div id="schedList">—</div></div>
+      </div>
+      <!-- DETAIL VIEW (full page for one subnet, or All) -->
+      <div id="dashDetail" class="hide">
+        <div class="back" onclick="dashBack()">← All recon scans</div>
+        <h2 id="dHdr" style="color:var(--fg);text-transform:none;letter-spacing:0;font-size:18px;border:0;margin:6px 0 14px"></h2>
+        <div class="panel hide" id="dPanel">
+          <div class="jobhead">
+            <div class="statuswrap"><span class="statusdot" id="dDot"></span>
+              <span class="statusbig" id="dStatus">QUEUED</span></div>
+            <div class="jobtimes"><b id="dRuntime">00:00</b><span class="muted" id="dEta"></span></div>
+            <div class="jobctl">
+              <button class="sm" id="dPause" onclick="LIVE_DASH.control('pause')">⏸ Pause</button>
+              <button class="sm" id="dResume" onclick="LIVE_DASH.control('resume')" style="display:none">▶ Resume</button>
+              <button class="sm danger" id="dStop" onclick="LIVE_DASH.control('stop')">⏹ Stop</button>
+            </div>
+          </div>
+          <div style="font-size:13px;margin:12px 0 6px" id="dTitle"></div>
+          <div class="bar"><i id="dBar"></i></div>
+          <div id="dStages"></div>
+          <div class="term" id="dTerm" style="margin-top:12px"></div>
+          <div class="tiles" id="dJobStats" style="margin-top:14px"></div>
+        </div>
+        <div id="dResults"></div>
+        <div id="dShots"></div>
+      </div>
+    </section>
+
+    <!-- PREFLIGHT -->
+    <section id="v-preflight" class="hide">
+      <div id="pfBanner"></div>
+      <div class="tiles" id="pfRes"></div>
+      <div class="panel"><h2>CLI tools used by this project</h2><div id="pfTools">—</div></div>
+      <div class="panel"><h2>Scan modules (25)</h2><div class="grid2" id="pfModules">—</div></div>
+      <div class="panel"><h2>Project files</h2><div class="grid2" id="pfFiles">—</div></div>
+      <div class="row"><div style="flex:0"><button class="sm" onclick="loadPreflight()">↻ Re-check</button></div></div>
+    </section>
+
+    <!-- NEW SCAN -->
+    <section id="v-newscan" class="hide">
+      <div class="panel">
+        <div class="seg" id="scanType">
+          <button class="on" data-t="recon">Subnet Recon</button>
+          <button data-t="module">Module Scan</button>
+        </div>
+
+        <!-- recon form (output shows on Dashboard) -->
+        <div id="form-recon">
+          <label>Scan name</label><input id="r_name" placeholder="e.g. DC subnets - Nov">
+          <label>Subnets <span class="muted">(comma or newline separated)</span></label>
+          <textarea id="r_subnets" placeholder="192.168.1.0/24&#10;10.0.0.0/16"></textarea>
+          <label>Stages</label>
+          <div class="inline">
+            <label class="chk"><input type="checkbox" class="rstage" value="ping" checked> Ping sweep</label>
+            <label class="chk"><input type="checkbox" class="rstage" value="nmap" checked> Nmap (-A -p-)</label>
+            <label class="chk"><input type="checkbox" class="rstage" value="classify" checked> Classify</label>
+            <label class="chk"><input type="checkbox" class="rstage" value="searchsploit" checked> Searchsploit</label>
+            <label class="chk"><input type="checkbox" class="rstage" value="snaps" checked> HTTP screenshots</label>
+          </div>
+          <div class="row"><div><label>Screenshot tool</label>
+            <select id="r_snaptool"><option value="auto">auto (first available)</option></select></div></div>
+          <div class="hintrow" id="reconHint"></div>
+          <div class="row" style="margin-top:16px">
+            <div style="flex:0"><button class="pri" id="runRecon">▶ Run recon</button></div>
+            <div style="flex:0"><button id="toggleSchedR">◷ Schedule instead</button></div>
+          </div>
+          <!-- inline scheduling (recon only) -->
+          <div id="reconSchedBox" class="hide" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--bd)">
+            <div class="row">
+              <div><label>Date</label><input type="date" id="s_date"></div>
+              <div><label>Time</label><input type="time" id="s_time"></div>
+              <div class="ta"><label>Timezone <span class="muted">(type a city)</span></label>
+                <input id="s_tz_input" autocomplete="off" placeholder="type a city or zone…">
+                <input type="hidden" id="s_tz"><div class="ta-dd" id="tzdd"></div></div>
+              <div><label>Recurrence</label><select id="s_rec">
+                <option value="once">Once</option><option value="daily">Daily</option><option value="weekly">Weekly</option>
+              </select></div>
+            </div>
+            <div class="row" style="margin-top:12px"><div style="flex:0">
+              <button class="pri" id="schedBtn">◷ Schedule recon</button></div></div>
+            <div class="notice" id="schedNotice"></div>
+          </div>
+          <div class="notice" id="reconNotice"></div>
+          <div class="hintrow">Recon runs in the background — watch its live output on the <a onclick="go('dashboard')">Dashboard</a>. Scheduling is available for recon only.</div>
+        </div>
+
+        <!-- module form (output shows HERE, inline) -->
+        <div id="form-module" class="hide">
+          <label>Scan name</label><input id="m_name" placeholder="e.g. SMB sweep">
+          <label>Module</label><select id="m_module"></select>
+          <div class="muted" id="m_cmd" style="margin:8px 0;color:var(--yel);word-break:break-all"></div>
+          <label>Targets <span class="muted">(x.x.x.x Port xx — one per line)</span></label>
+          <input type="file" id="m_file" style="margin-bottom:8px">
+          <textarea id="m_targets" placeholder="192.168.1.10 Port 445&#10;10.0.0.5 Port 3389"></textarea>
+          <div class="row"><div style="max-width:220px"><label>Workers (parallel targets)</label>
+            <input id="m_workers" value="auto"></div>
+            <div style="flex:0" class="hintrow" id="workerHint"></div></div>
+          <div class="hintrow">“auto” sizes workers to this machine and is shared with any running recon scan.</div>
+          <div class="row" style="margin-top:16px">
+            <div style="flex:0"><button class="pri" id="runModule">▶ Run module</button></div>
+          </div>
+          <div class="notice" id="moduleNotice"></div>
+
+          <!-- module live panel (inline, module output stays here) -->
+          <div class="panel hide" id="mPanel" style="margin-top:16px">
+            <div class="jobhead">
+              <div class="statuswrap"><span class="statusdot" id="mDot"></span>
+                <span class="statusbig" id="mStatus">QUEUED</span></div>
+              <div class="jobtimes"><b id="mRuntime">00:00</b><span class="muted" id="mEta"></span></div>
+              <div class="jobctl">
+                <button class="sm" id="mPause" onclick="LIVE_MOD.control('pause')">⏸ Pause</button>
+                <button class="sm" id="mResume" onclick="LIVE_MOD.control('resume')" style="display:none">▶ Resume</button>
+                <button class="sm danger" id="mStop" onclick="LIVE_MOD.control('stop')">⏹ Stop</button>
+              </div>
+            </div>
+            <div style="font-size:13px;margin:12px 0 6px" id="mTitle"></div>
+            <div class="bar hide"><i id="mBar"></i></div>
+            <div id="mStages"></div>
+            <div class="term" id="mTerm" style="margin-top:12px"></div>
+            <div class="tiles" id="mJobStats" style="margin-top:14px"></div>
+            <div id="mResults"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TRASH -->
+    <section id="v-trash" class="hide">
+      <div class="panel">
+        <h2>Trash — deleted recon scans</h2>
+        <div id="trashList" class="muted">Trash is empty.</div>
+        <div class="hintrow">Deleted scans are kept here so you can restore them. “Delete permanently” removes the scan and its workspace for good.</div>
+      </div>
+    </section>
+
+  </div>
+</div>
+<div class="lightbox" id="lightbox" onclick="this.classList.remove('on')"><img id="lightimg"></div>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+let MODULES=[], TZS=[], RES=null, curView='dashboard', tzCands=[];
+const VT={dashboard:'Dashboard',preflight:'Preflight',newscan:'New Scan',trash:'Trash'};
+
+(function(){const t=localStorage.getItem('rc_theme')||'dark';setTheme(t);})();
+function setTheme(t){document.body.dataset.theme=t;localStorage.setItem('rc_theme',t);$('#themeBtn').textContent=t==='dark'?'☾':'☀';}
+$('#themeBtn').onclick=()=>setTheme(document.body.dataset.theme==='dark'?'light':'dark');
+
+// collapsible sidebar (default collapsed)
+(function(){ if(localStorage.getItem('rc_nav')!=='open')document.body.classList.add('nav-collapsed'); })();
+$('#burger').onclick=()=>{ document.body.classList.toggle('nav-collapsed');
+  localStorage.setItem('rc_nav',document.body.classList.contains('nav-collapsed')?'closed':'open'); };
+
+function go(v){
+  curView=v;
+  $$('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.v===v));
+  Object.keys(VT).forEach(x=>$('#v-'+x).classList.toggle('hide',x!==v));
+  $('#vtitle').textContent=VT[v];
+  if(v==='dashboard')loadDash();
+  if(v==='preflight')loadPreflight();
+  if(v==='trash')loadTrash();
+}
+// live system meters
+async function sysLoop(){
+  try{const s=await fetch('/api/sysstats').then(r=>r.json());setMeter('cpu',s.cpu_pct);setMeter('mem',s.mem_pct);setMeter('load',s.load_pct);
+    $('#memVal').title=s.mem_used_gb+' / '+s.mem_total_gb+' GB';$('#loadVal').textContent=s.load1;}
+  catch(e){}
+  setTimeout(sysLoop,2000);
+}
+function setMeter(k,pct){pct=Math.max(0,Math.min(100,pct||0));
+  const bar=$('#'+k+'Bar'),val=$('#'+k+'Val');if(!bar)return;
+  bar.style.width=pct+'%';
+  bar.style.background=pct>=85?'var(--red)':pct>=60?'var(--yel)':'var(--grn)';
+  if(k!=='load')val.textContent=pct+'%';
+}
+sysLoop();
+$$('#nav a').forEach(a=>a.onclick=()=>{location.hash=a.dataset.v;go(a.dataset.v);});
+window.addEventListener('hashchange',()=>{const v=location.hash.slice(1);if(VT[v])go(v);});
+function esc(s){return String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+setInterval(()=>{$('#clock').textContent=new Date().toLocaleString();},1000);
+
+async function pingLoop(){
+  try{const r=await fetch('/api/ping');if(r.ok){$('#liveDot').className='dot up';$('#liveTxt').textContent='server up';}else throw 0;}
+  catch(e){$('#liveDot').className='dot down';$('#liveTxt').textContent='server down';}
+  setTimeout(pingLoop,4000);
+}
+pingLoop();
+
+Promise.all([
+  fetch('/api/modules').then(r=>r.json()),
+  fetch('/api/timezones').then(r=>r.json()),
+  fetch('/api/tools').then(r=>r.json()),
+  fetch('/api/resources').then(r=>r.json())
+]).then(([mods,tzs,tools,res])=>{
+  MODULES=mods;TZS=tzs;RES=res;
+  const opt=m=>`<option value="${m.id}">${m.id} · ${esc(m.name)}</option>`;
+  $('#m_module').innerHTML=mods.map(opt).join('');
+  updateCmdPrev();$('#m_module').onchange=updateCmdPrev;
+  (tools.snap_tools||[]).forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;$('#r_snaptool').appendChild(o);});
+  // tool summary moved to the Preflight page
+  $('#workerHint').textContent=`machine: ${res.cpu_cores} cores / ${res.ram_gb} GB → auto ≈ ${res.recommended_workers} workers`;
+  $('#reconHint').textContent=`Auto-sized to this machine: nmap ${res.recommended_slots} subnet slot(s), ${res.screenshot_threads} screenshot thread(s) — ${res.cpu_cores} cores / ${res.ram_gb} GB. Shared when scans run together.`;
+  buildTzCandidates(tzs);
+  setTz(Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC');
+  const d=new Date(Date.now()+3600000);
+  $('#s_date').value=d.toISOString().slice(0,10);$('#s_time').value=d.toTimeString().slice(0,5);
+  const hv=location.hash.slice(1);
+  if(VT[hv])go(hv); else loadDash();
+});
+function updateCmdPrev(){const m=MODULES.find(x=>x.id==$('#m_module').value);$('#m_cmd').textContent=m?('Command: '+m.cmd):'';}
+
+// ---- timezone typeahead ----
+const TZ_ALIAS={chennai:'Asia/Kolkata',madras:'Asia/Kolkata',mumbai:'Asia/Kolkata',bombay:'Asia/Kolkata',delhi:'Asia/Kolkata','new delhi':'Asia/Kolkata',bangalore:'Asia/Kolkata',bengaluru:'Asia/Kolkata',kolkata:'Asia/Kolkata',calcutta:'Asia/Kolkata',hyderabad:'Asia/Kolkata',pune:'Asia/Kolkata',india:'Asia/Kolkata',salem:'Asia/Kolkata',coimbatore:'Asia/Kolkata',dubai:'Asia/Dubai',singapore:'Asia/Singapore',london:'Europe/London',paris:'Europe/Paris',berlin:'Europe/Berlin',moscow:'Europe/Moscow','new york':'America/New_York',nyc:'America/New_York',chicago:'America/Chicago','los angeles':'America/Los_Angeles',la:'America/Los_Angeles','san francisco':'America/Los_Angeles',tokyo:'Asia/Tokyo',sydney:'Australia/Sydney',toronto:'America/Toronto',karachi:'Asia/Karachi',dhaka:'Asia/Dhaka',colombo:'Asia/Colombo',riyadh:'Asia/Riyadh','hong kong':'Asia/Hong_Kong',shanghai:'Asia/Shanghai',beijing:'Asia/Shanghai'};
+function buildTzCandidates(tzs){
+  tzCands=tzs.map(z=>({label:z.replace(/_/g,' '),zone:z,key:z.toLowerCase().replace(/_/g,' ')}));
+  Object.entries(TZ_ALIAS).forEach(([city,zone])=>tzCands.push({label:city.replace(/\b\w/g,c=>c.toUpperCase()),zone,key:city,alias:true}));
+}
+function setTz(zone){$('#s_tz').value=zone;$('#s_tz_input').value=zone;}
+document.addEventListener('input',e=>{if(e.target.id==='s_tz_input')filterTz(e.target.value);});
+document.addEventListener('focusin',e=>{if(e.target.id==='s_tz_input')filterTz(e.target.value);});
+document.addEventListener('click',e=>{if(!e.target.closest('.ta'))$('#tzdd').classList.remove('on');});
+function filterTz(q){
+  q=q.trim().toLowerCase();let list;
+  if(!q)list=tzCands.filter(c=>c.alias).slice(0,10);
+  else{list=tzCands.filter(c=>c.key.includes(q)||c.zone.toLowerCase().includes(q));list.sort((a,b)=>(b.alias?1:0)-(a.alias?1:0));list=list.slice(0,14);}
+  const dd=$('#tzdd');
+  if(!list.length){dd.classList.remove('on');dd.innerHTML='';return;}
+  dd.innerHTML=list.map(c=>`<div data-zone="${c.zone}">${esc(c.label)}${c.alias||c.label!==c.zone?`<span class="zone">${c.zone}</span>`:''}</div>`).join('');
+  dd.classList.add('on');
+  dd.querySelectorAll('div').forEach(d=>d.onclick=()=>{setTz(d.dataset.zone);dd.classList.remove('on');});
+}
+
+// ---- scan type toggles ----
+$$('#scanType button').forEach(b=>b.onclick=()=>{
+  $$('#scanType button').forEach(x=>x.classList.toggle('on',x===b));
+  $('#form-recon').classList.toggle('hide',b.dataset.t!=='recon');
+  $('#form-module').classList.toggle('hide',b.dataset.t!=='module');
+});
+$$('#schedType button').forEach(b=>b.onclick=()=>{
+  $$('#schedType button').forEach(x=>x.classList.toggle('on',x===b));
+  $('#sform-recon').classList.toggle('hide',b.dataset.t!=='recon');
+  $('#sform-module').classList.toggle('hide',b.dataset.t!=='module');
+});
+$('#m_file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>$('#m_targets').value=r.result;r.readAsText(f);});
+
+// ================= LIVE VIEW FACTORY =================
+function makeLive(p, opts){
+  opts=opts||{};
+  let jobId=null, dead=false;
+  const g=s=>document.getElementById(p+s);
+  const TERM={done:1,error:1,stopped:1};
+  function open(id,title){
+    jobId=id;dead=false;
+    g('Panel').classList.remove('hide');
+    if(g('Title'))g('Title').textContent=title||'';
+    g('Term').innerHTML='';g('Bar').style.width='0';g('JobStats').innerHTML='';g('Stages').innerHTML='';
+    if(g('Results'))g('Results').innerHTML='';
+    setStatusUI('queued',false);
+    pollLog(0);pollStatus();
+  }
+  function tline(txt){
+    let cls='s';
+    if(/VULNERABLE|\[FATAL|\[error|\[skip|STOPPED/.test(txt))cls='v';
+    else if(/^===|COMPLETE|✅|done/.test(txt))cls='h';
+    else if(/^\s*→/.test(txt))cls='f';
+    else if(/^▶|launch|\[\d+\/\d+\]|⏸|resumed/.test(txt))cls='l';
+    const d=document.createElement('div');d.className=cls;d.textContent=txt;
+    const t=g('Term');t.appendChild(d);t.scrollTop=t.scrollHeight;
+  }
+  async function pollLog(from){
+    if(dead||jobId==null)return;let r;
+    try{r=await fetch('/api/job/log?id='+jobId+'&from='+from).then(x=>x.json());}catch(e){setTimeout(()=>pollLog(from),1500);return;}
+    (r.lines||[]).forEach(tline);
+    if(TERM[r.status]){g('JobStats')&&showStats(r.stats);return;}
+    setTimeout(()=>pollLog(r.next),300);
+  }
+  async function pollStatus(){
+    if(dead||jobId==null)return;let j;
+    try{j=await fetch('/api/job?id='+jobId).then(x=>x.json());}catch(e){setTimeout(pollStatus,1500);return;}
+    setStatusUI(j.status,j.paused);
+    g('Runtime').textContent=fmtDur(j.runtime);
+    renderStages(j.progress||[]);
+    let d=0,tot=0,eta=0;
+    (j.progress||[]).forEach(s=>{d+=s.done;tot+=s.total;if(s.status==='running'&&s.done>0&&s.total>0&&s.elapsed>0)eta+=(s.elapsed/s.done)*(s.total-s.done);});
+    g('Bar').style.width=(tot?100*d/tot:0)+'%';
+    g('Eta').textContent=(eta>0&&!TERM[j.status])?('ETA ~'+fmtDur(eta)):'';
+    if(TERM[j.status]){
+      g('Bar').style.width='100%';showStats(j.stats);
+      ['Pause','Resume','Stop'].forEach(k=>{if(g(k))g(k).style.display='none';});
+      if(opts.onDone)opts.onDone(jobId,j);
+      return;
+    }
+    setTimeout(pollStatus,800);
+  }
+  function setStatusUI(status,paused){
+    const label={queued:'QUEUED',running:paused?'PAUSED':'RUNNING',paused:'PAUSED',done:'COMPLETED',stopped:'STOPPED',error:'ERROR'}[status]||status.toUpperCase();
+    const cls=(status==='running'&&paused)?'paused':status;
+    g('Status').textContent=label;
+    g('Panel').className='panel st-'+cls;
+    const active=(status==='running'||status==='queued');
+    if(g('Stop'))g('Stop').style.display=active?'':'none';
+    if(g('Pause'))g('Pause').style.display=(active&&!paused)?'':'none';
+    if(g('Resume'))g('Resume').style.display=(active&&paused)?'':'none';
+  }
+  function renderStages(stages){
+    if(!stages.length){g('Stages').innerHTML='';return;}
+    g('Stages').innerHTML=stages.map(s=>{
+      const pct=s.total?Math.round(100*s.done/s.total):(s.status==='done'?100:0);
+      const cnt=s.total>1?`${s.done}/${s.total}`:(s.status==='done'?'✓':'');
+      return `<div class="stage"><div class="stagerow"><span class="snm">${esc(s.name)}</span>
+        <span class="sst ${s.status}">${s.status}</span>
+        <span class="scount">${cnt} ${s.elapsed?'· '+fmtDur(s.elapsed):''}</span></div>
+        <div class="stbar ${s.status==='done'?'done':''}"><i style="width:${pct}%"></i></div></div>`;
+    }).join('');
+  }
+  function showStats(st){if(!st||!g('JobStats'))return;g('JobStats').innerHTML=Object.entries(st).map(([k,v])=>`<div class="tile"><div class="n">${v}</div><div class="l">${esc(k)}</div></div>`).join('');}
+  async function control(action){
+    if(jobId==null)return;
+    await fetch('/api/job/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:jobId,action})});
+    if(action==='pause')setStatusUI('running',true);
+    if(action==='resume')setStatusUI('running',false);
+  }
+  function stop(){dead=true;}
+  function isLive(id){return jobId===id&&!dead;}
+  return {open,control,stop,isLive,get jobId(){return jobId;}};
+}
+function fmtDur(s){s=Math.max(0,Math.round(s||0));const m=Math.floor(s/60),ss=s%60,h=Math.floor(m/60),mm=m%60;return h>0?`${h}:${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`:`${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;}
+
+const LIVE_MOD=makeLive('m',{onDone:(id,j)=>{
+  RUNNING_MODULE=false;setBtn('#runModule',false,'▶ Run module');
+  renderModuleResults(id);
+  if(j&&j.status==='done'){$('#m_targets').value='';$('#m_file').value='';$('#m_name').value='';$('#moduleNotice').textContent='✓ Done — targets cleared, ready for the next batch.';}
+}});
+const LIVE_DASH=makeLive('d',{onDone:(id)=>{refreshDashList();renderReconDetail(id);}});
+
+// ================= RUN HANDLERS (independent) =================
+let RUNNING_MODULE=false;
+function setBtn(sel,busy,label){const b=$(sel);b.disabled=busy;b.textContent=busy?'● scanning…':label;b.classList.toggle('busy',busy);}
+
+$('#runRecon').onclick=async()=>{
+  const subnets=$('#r_subnets').value;
+  if(!subnets.trim()){$('#reconNotice').textContent='Enter at least one subnet.';return;}
+  setBtn('#runRecon',true,'▶ Run recon');
+  const body={name:$('#r_name').value,subnets,stages:$$('.rstage:checked').map(c=>c.value),snap_tool:$('#r_snaptool').value};
+  let r;try{r=await fetch('/api/scan/recon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(x=>x.json());}
+  catch(e){setBtn('#runRecon',false,'▶ Run recon');$('#reconNotice').textContent='Failed: '+e;return;}
+  setBtn('#runRecon',false,'▶ Run recon');
+  if(r.error){$('#reconNotice').textContent='Error: '+r.error;return;}
+  // clear the form so the next scan starts fresh
+  $('#r_subnets').value='';$('#r_name').value='';$('#reconNotice').textContent='';
+  // recon output lives on the Dashboard — one instance per subnet
+  go('dashboard');
+};
+$('#runModule').onclick=async()=>{
+  if(RUNNING_MODULE)return;
+  const tg=$('#m_targets').value.trim();
+  if(!tg){$('#moduleNotice').textContent='Enter targets.';return;}
+  RUNNING_MODULE=true;setBtn('#runModule',true,'▶ Run module');$('#moduleNotice').textContent='';
+  const body={name:$('#m_name').value,module:+$('#m_module').value,targets:tg,workers:$('#m_workers').value.trim()||'auto'};
+  let r;try{r=await fetch('/api/scan/module',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(x=>x.json());}
+  catch(e){RUNNING_MODULE=false;setBtn('#runModule',false,'▶ Run module');$('#moduleNotice').textContent='Failed: '+e;return;}
+  if(r.error){RUNNING_MODULE=false;setBtn('#runModule',false,'▶ Run module');$('#moduleNotice').textContent='Error: '+r.error;return;}
+  LIVE_MOD.open(r.id,(body.name||'Module')+' scan');
+};
+// inline recon scheduling
+$('#toggleSchedR').onclick=()=>{
+  const box=$('#reconSchedBox');box.classList.toggle('hide');
+  if(!box.classList.contains('hide')){
+    const d=new Date(Date.now()+3600000);
+    if(!$('#s_date').value)$('#s_date').value=d.toISOString().slice(0,10);
+    if(!$('#s_time').value)$('#s_time').value=d.toTimeString().slice(0,5);
+  }
+};
+
+async function renderModuleResults(id){
+  // shared across ALL module scans: module_results/<bucket>/<module>/<files>
+  const r=await fetch('/api/module_results').then(x=>x.json());
+  const tree=r.tree||{};
+  const order=['vulnerable','not_vulnerable','all'];
+  let h=`<div class="panel" style="margin-top:14px"><h2>module_results/ (shared across all module scans)</h2>`;
+  let any=false;
+  order.forEach(bucket=>{
+    const mods=tree[bucket];if(!mods||!Object.keys(mods).length)return;any=true;
+    const color=bucket==='vulnerable'?'var(--red)':bucket==='all'?'var(--cyn)':'var(--grn)';
+    h+=`<div class="shotgrouphdr" style="color:${color}">${bucket}/</div>`;
+    Object.entries(mods).forEach(([mod,info])=>{
+      h+=`<div style="margin:4px 0 8px"><div style="font-size:12px;color:var(--fg)">↳ ${esc(mod)}/ <span class="muted">(${info.count} file${info.count===1?'':'s'})</span></div>
+        <div style="padding-left:16px">`+
+        info.files.slice(0,60).map(f=>`<a class="tag" href="/mr/${bucket}/${encodeURIComponent(mod)}/${encodeURIComponent(f)}" target="_blank">${esc(f.replace(/\.txt$/,''))}</a>`).join('')+
+        (info.files.length>60?`<span class="muted"> +${info.files.length-60} more</span>`:'')+`</div></div>`;
+    });
+  });
+  h+= any?'</div>':'<span class="muted">No module output yet.</span></div>';
+  $('#mResults').innerHTML=h;
+}
+
+// ================= DASHBOARD (recon hub) =================
+let DASH_SELECT=null, DASH_MODE='list', DASH_TIMER=null;
+function subnetName(j){return j.name||(j.config&&j.config.subnets&&j.config.subnets[0])||'recon';}
+
+function loadDash(){ DASH_MODE='list'; DASH_SELECT=null; LIVE_DASH.stop();
+  $('#dashDetail').classList.add('hide'); $('#dashList').classList.remove('hide');
+  refreshDashList();
+  if(DASH_TIMER)clearInterval(DASH_TIMER);
+  DASH_TIMER=setInterval(()=>{ if(curView==='dashboard'&&DASH_MODE==='list')refreshDashList(); },2500);
+  if(!BOARD_TIMER)BOARD_TIMER=setInterval(()=>{ if(curView==='dashboard'&&DASH_MODE==='list')boardTick(); },450);
+}
+const SPIN=['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧'];
+let BOARD=[], BOARD_FRAME=0, BOARD_TIMER=null;
+function cidrSlots(sn){const m=/\/(\d+)/.exec(sn||'');const p=m?+m[1]:24;
+  return p<=8?8:p<=12?6:p<=16?4:p<=20?2:1;}
+async function refreshDashList(){
+  let jobs;try{jobs=(await fetch('/api/jobs').then(r=>r.json())).filter(j=>j.type==='recon');}catch(e){return;}
+  loadSchedules();
+  // headline metrics — pentester-meaningful
+  const sum=(k)=>jobs.reduce((a,j)=>a+((j.stats&&j.stats[k])||0),0);
+  const runningCount=jobs.filter(j=>j.status==='running'||j.status==='paused').length;
+  const metrics=[[jobs.length,'Recon scans'],[runningCount,'Running'],[sum('hosts_up'),'Hosts up'],
+    [sum('open_ports'),'Open ports'],[sum('exploits'),'Exploits']];
+  $('#dMetrics').innerHTML=metrics.map(([n,l])=>`<div class="tile"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+  BOARD=jobs.map(j=>({id:j.id,subnet:subnetName(j),status:j.status,
+    started_at:j.started_at,runtime:j.runtime,slots:cidrSlots(subnetName(j)),
+    prog:j.prog,stats:j.stats||{}}));
+  if(!BOARD.length){$('#dBoard').innerHTML='<div class="muted">No recon scans yet. Start one from New Scan.</div>';return;}
+  const running=BOARD.filter(b=>b.status==='running'||b.status==='paused').length;
+  const totSlots=BOARD.filter(b=>b.status==='running').reduce((a,b)=>a+b.slots,0);
+  let h=`<div class="brow bhdr"><span class="bg">◆</span><span class="bsn">Parallel recon</span>
+    <span class="bsl">${BOARD.length} subnet(s)</span><span class="bst">${running} active</span>
+    <span class="bel">slots:${totSlots}</span><span class="bdel"></span></div>`;
+  h+=BOARD.map(b=>{
+    const up=(b.stats&&b.stats.hosts_up)?` <span class="hup">(${b.stats.hosts_up} up)</span>`:'';
+    let extra='';
+    if((b.status==='running'||b.status==='paused')&&b.prog){
+      const st=b.prog.stage,pl=b.prog.planned;
+      extra=` · step ${st}/${pl} · ${esc(b.prog.cur)} ${b.prog.pct}%`;
+    }
+    return `<div class="brow" data-id="${b.id}" onclick="dashOpen('${b.id}')" title="open ${esc(b.subnet)}">
+      <span class="bg" data-id="${b.id}"></span>
+      <span class="bsn">${esc(b.subnet)}${up}</span>
+      <span class="bsl">slots:${b.slots}</span>
+      <span class="bst bs-${b.status}">${b.status}${extra}</span>
+      <span class="bel" data-id="${b.id}"></span>
+      <span class="bdel" onclick="event.stopPropagation();trashScan('${b.id}','${esc(b.subnet)}')" title="Delete (move to Trash)">🗑</span></div>`;
+  }).join('');
+  $('#dBoard').innerHTML=h;
+  boardTick();
+}
+async function trashScan(id,name){
+  if(!confirm('Move "'+name+'" to Trash? You can restore it later.'))return;
+  await fetch('/api/job/trash',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+  refreshDashList();
+}
+function boardTick(){
+  BOARD_FRAME=(BOARD_FRAME+1)%SPIN.length;
+  const now=Date.now()/1000;
+  BOARD.forEach(b=>{
+    const g=document.querySelector('.bg[data-id="'+b.id+'"]');
+    const el=document.querySelector('.bel[data-id="'+b.id+'"]');
+    if(!g)return;
+    let glyph,cls;
+    if(b.status==='running'){glyph=SPIN[BOARD_FRAME];cls='g-run';}
+    else if(b.status==='paused'){glyph='⏸';cls='g-pause';}
+    else if(b.status==='done'){glyph='✔';cls='g-done';}
+    else if(b.status==='stopped'||b.status==='error'){glyph='✖';cls='g-err';}
+    else {glyph='○';cls='g-queue';}
+    g.textContent=glyph;g.className='bg '+cls;
+    if(el){
+      let secs=null;
+      if((b.status==='running'||b.status==='paused')&&b.started_at)secs=now-b.started_at;
+      else if(b.runtime!=null&&b.status!=='queued')secs=b.runtime;
+      el.textContent=secs!=null?fmtDur(secs):'';
+    }
+  });
+}
+async function dashOpen(id){
+  DASH_SELECT=id; DASH_MODE='detail'; LIVE_DASH.stop();
+  $('#dashList').classList.add('hide'); $('#dashDetail').classList.remove('hide');
+  $('#dPanel').classList.add('hide'); $('#dResults').innerHTML=''; $('#dShots').innerHTML='';
+  window.scrollTo(0,0);
+  if(id==='all'){ $('#dHdr').textContent='All subnets — combined';
+    const jobs=(await fetch('/api/jobs').then(r=>r.json())).filter(j=>j.type==='recon');
+    renderAllSubnets(jobs); return; }
+  const j=await fetch('/api/job?id='+id).then(r=>r.json());
+  $('#dHdr').textContent=subnetName(j);
+  if(j.status==='running'||j.status==='paused'||j.status==='queued'){
+    LIVE_DASH.open(id, subnetName(j)+' — live');
+    renderReconDetail(id);          // show whatever artifacts exist so far
+  } else {
+    renderReconDetail(id);
+  }
+}
+function dashBack(){ LIVE_DASH.stop(); DASH_MODE='list';
+  $('#dashDetail').classList.add('hide'); $('#dashList').classList.remove('hide'); refreshDashList(); }
+
+const STAT_LABELS={hosts_up:'Hosts up',live_hosts:'Hosts w/ ports',open_ports:'Open ports',
+  services:'Services',risky:'High-risk',components:'Components',exploits:'Exploits',
+  screenshots:'Screenshots',xmls:'Nmap XML',subnets:'Subnets'};
+const STAT_ORDER=['hosts_up','live_hosts','open_ports','services','risky','exploits','components','screenshots'];
+async function renderReconDetail(id){
+  const r=await fetch('/api/results?id='+id).then(x=>x.json());
+  if(r.error){$('#dResults').innerHTML='<div class="muted">'+esc(r.error)+'</div>';return;}
+  const st=r.stats||{};
+  const keys=STAT_ORDER.filter(k=>k in st).concat(Object.keys(st).filter(k=>!STAT_ORDER.includes(k)&&k!=='subnets'));
+  let h=`<div class="tiles">`+keys.map(k=>{
+    const risky=k==='risky'&&st[k]>0,expl=k==='exploits'&&st[k]>0;
+    const cls=risky||expl?' style="border-color:var(--red)"':'';
+    return `<div class="tile"${cls}><div class="n"${risky||expl?' style="color:var(--red)"':''}>${st[k]}</div><div class="l">${esc(STAT_LABELS[k]||k)}</div></div>`;
+  }).join('')+`</div>`;
+  // services breakdown chart
+  const sb=r.svc_breakdown||{};
+  if(Object.keys(sb).length){
+    h+=`<div class="panel"><h2>Open services</h2>${miniBars(sb,'var(--cyn)')}</div>`;
+  }
+  if(r.dashboard){h+=`<div class="panel"><h2>Recon dashboard</h2><iframe class="dash" src="/ws/${id}/${encodeURI(r.dashboard)}"></iframe>
+    <div style="margin-top:8px"><a href="/ws/${id}/${encodeURI(r.dashboard)}" target="_blank">Open dashboard in new tab ↗</a></div></div>`;}
+  if(r.class_files&&r.class_files.length){h+=`<div class="panel"><h2>Classification files</h2>`+
+    r.class_files.map(f=>`<a class="tag" href="/ws/${id}/Classification/${encodeURIComponent(f)}" target="_blank">${esc(f)}</a>`).join('')+`</div>`;}
+  if(r.ping_sweep)h+=`<div class="panel"><h2>Ping sweep</h2><a href="/ws/${id}/ping_sweep.txt" target="_blank">ping_sweep.txt ↗</a></div>`;
+  if(r.xmls&&r.xmls.length)h+=`<div class="panel"><h2>Nmap XML (${r.xmls.length})</h2>`+r.xmls.map(f=>`<a class="tag" href="/ws/${id}/nmap_scans/${encodeURIComponent(f)}" target="_blank">${esc(f)}</a>`).join('')+`</div>`;
+  $('#dResults').innerHTML=h;
+  renderShotsInto(id,'#dShots');
+}
+
+async function renderAllSubnets(jobs){
+  if(!jobs.length){$('#dResults').innerHTML='<div class="muted">No recon scans yet.</div>';return;}
+  // aggregate stats + merged screenshots
+  const results=await Promise.all(jobs.map(j=>fetch('/api/results?id='+j.id).then(r=>r.json()).catch(()=>({}))));
+  let up=0,ports=0,shots=0,expl=0,risky=0;const svc={};
+  results.forEach(r=>{const s=r.stats||{};up+=s.hosts_up||0;ports+=s.open_ports||0;shots+=s.screenshots||0;expl+=s.exploits||0;risky+=s.risky||0;
+    Object.entries(r.svc_breakdown||{}).forEach(([k,v])=>{svc[k]=(svc[k]||0)+v;});});
+  let h=`<div class="tiles">
+    <div class="tile"><div class="n">${jobs.length}</div><div class="l">Recon scans</div></div>
+    <div class="tile"><div class="n">${up}</div><div class="l">Hosts up</div></div>
+    <div class="tile"><div class="n">${ports}</div><div class="l">Open ports</div></div>
+    <div class="tile" style="border-color:${risky?'var(--red)':'var(--bd)'}"><div class="n" style="color:${risky?'var(--red)':'inherit'}">${risky}</div><div class="l">High-risk</div></div>
+    <div class="tile"><div class="n">${shots}</div><div class="l">Screenshots</div></div></div>`;
+  const svcTop=Object.fromEntries(Object.entries(svc).sort((a,b)=>b[1]-a[1]).slice(0,10));
+  if(Object.keys(svcTop).length)h+=`<div class="panel"><h2>Open services — all subnets</h2>${miniBars(svcTop,'var(--cyn)')}</div>`;
+  h+=`<div class="panel"><h2>All recon scans</h2><table><tr><th>Name</th><th>Subnets</th><th>Status</th><th>Summary</th><th></th></tr>`+
+    jobs.map(j=>`<tr><td>${esc(j.name||'recon')}</td><td class="muted">${esc((j.config&&j.config.subnets||[]).join(', '))}</td>
+      <td><span class="pill p-${j.status}">${j.status}</span></td><td class="muted">${statSummary(j.stats)}</td>
+      <td><button class="sm" onclick="dashSelect('${j.id}')">open →</button></td></tr>`).join('')+`</table></div>`;
+  $('#dResults').innerHTML=h;
+  // merged screenshot gallery
+  const allEntries=[];
+  const shotsData=await Promise.all(jobs.map(j=>fetch('/api/shots?id='+j.id).then(r=>r.json()).then(d=>({id:j.id,d})).catch(()=>null)));
+  shotsData.forEach(x=>{if(x&&x.d&&x.d.entries)x.d.entries.forEach(e=>allEntries.push(Object.assign({__job:x.id},e)));});
+  if(allEntries.length){
+    $('#dShots').innerHTML=`<div class="panel"><h2>All screenshots (${allEntries.length})</h2><div class="gallery">`+
+      allEntries.slice(0,200).map(e=>cardFor(e.__job,e)).join('')+`</div></div>`;
+  } else $('#dShots').innerHTML='';
+}
+
+// screenshots rendering (reused)
+function miniBars(obj,color){const ent=Object.entries(obj);if(!ent.length)return'';const max=Math.max(...ent.map(e=>e[1]));return '<div class="bars">'+ent.map(([k,v])=>`<div class="barrow"><span class="bk">${esc(k)}</span><span class="bt"><i style="width:${Math.round(100*v/max)}%;background:${color}"></i></span><span class="bv">${v}</span></div>`).join('')+'</div>';}
+function cardFor(id,e){
+  const url='/ws/'+id+'/'+e.file.split('/').map(encodeURIComponent).join('/');
+  const risk=e.port&&['445','3389','21','23','3306','6379','1433'].includes(e.port)?'r-high':'';
+  const prod=(e.products&&e.products.length)?e.products.slice(0,2).join(', '):'';
+  return `<div class="shot ${risk}"><img loading="lazy" src="${url}" onclick="lightbox('${url}')">
+    <div class="shotmeta"><div class="su"><span class="sch ${e.scheme}">${esc(e.scheme)}</span> ${esc(e.ip)}<span class="port">:${esc(e.port)}</span></div>
+    ${prod?`<div class="sp">${esc(prod)}</div>`:''}
+    <div class="st"><span class="tool">${esc(e.tool)}</span>${e.url?`<a href="${esc(e.url)}" target="_blank">open ↗</a>`:''}</div></div></div>`;
+}
+async function renderShotsInto(id,container){
+  const r=await fetch('/api/shots?id='+id).then(x=>x.json());
+  const ents=r.entries||[];
+  if(!ents.length){$(container).innerHTML='';return;}
+  const s=r.summary||{};
+  const groups={};ents.forEach(e=>{(groups[e.ip]=groups[e.ip]||[]).push(e);});
+  let h=`<div class="panel"><h2>Screenshots (${s.total||ents.length})</h2>
+    <div class="row" style="align-items:stretch;gap:16px;margin-bottom:12px">
+      <div style="flex:1"><div class="muted" style="font-size:11px;margin-bottom:6px">BY PORT</div>${miniBars(s.by_port||{},'var(--cyn)')}</div>
+      <div style="flex:1"><div class="muted" style="font-size:11px;margin-bottom:6px">BY HOST</div>${miniBars(s.by_host||{},'var(--grn)')}</div>
+    </div>`;
+  Object.keys(groups).sort().forEach(gk=>{h+=`<div class="shotgrouphdr">${esc(gk)} <span class="muted">(${groups[gk].length})</span></div><div class="gallery">`+groups[gk].map(e=>cardFor(id,e)).join('')+`</div>`;});
+  h+=`</div>`;
+  $(container).innerHTML=h;
+}
+function statSummary(s){if(!s)return'';return Object.entries(s).map(([k,v])=>`${k}:${v}`).join(' ');}
+function lightbox(u){$('#lightimg').src=u;$('#lightbox').classList.add('on');}
+
+// ---- schedule (recon only, inline in the recon form) ----
+$('#schedBtn').onclick=async()=>{
+  const subs=$('#r_subnets').value.split(/[\s,]+/).filter(Boolean);
+  if(!subs.length){$('#schedNotice').textContent='Enter subnets in the recon form above.';return;}
+  const stages=$$('.rstage:checked').map(c=>c.value);
+  if(!stages.length){$('#schedNotice').textContent='Pick at least one stage.';return;}
+  const config={type:'recon',subnets:subs,stages,snap_tool:$('#r_snaptool').value};
+  const name=$('#r_name').value||'Scheduled recon';
+  const tz=$('#s_tz').value||$('#s_tz_input').value;
+  if(!$('#s_date').value||!$('#s_time').value){$('#schedNotice').textContent='Pick date and time.';return;}
+  if(!tz){$('#schedNotice').textContent='Pick a timezone.';return;}
+  const r=await fetch('/api/schedule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,date:$('#s_date').value,time:$('#s_time').value,tz,recurrence:$('#s_rec').value,config})}).then(r=>r.json());
+  if(r.error){$('#schedNotice').textContent='Error: '+r.error;return;}
+  $('#schedNotice').textContent='✓ Scheduled. Next run (UTC): '+r.next_utc;
+  $('#r_subnets').value='';$('#r_name').value='';$('#reconSchedBox').classList.add('hide');
+  loadSchedules();go('dashboard');
+};
+async function loadSchedules(){
+  const el=$('#schedList');if(!el)return;
+  let list=[];try{list=await fetch('/api/schedules').then(r=>r.json());}catch(e){}
+  if(!list.length){el.innerHTML='<div class="muted">No scheduled recon scans.</div>';return;}
+  el.innerHTML=`<table><tr><th>Name</th><th>Subnets</th><th>Local time</th><th>TZ</th><th>Repeat</th><th>Next (UTC)</th><th>State</th><th></th></tr>`+
+    list.map(s=>`<tr><td>${esc(s.name)}</td><td class="muted">${esc((s.config.subnets||[]).length+' subnet(s)')}</td><td>${esc(s.local)}</td><td class="muted">${esc(s.tz)}</td><td>${esc(s.recurrence)}</td>
+      <td class="muted">${esc((s.next_utc||'').replace('T',' ').slice(0,16))}</td>
+      <td><span class="pill ${s.enabled?'p-done':'p-queued'}">${s.enabled?'on':'off'}</span></td>
+      <td><button class="sm" onclick="togSched('${s.id}')">${s.enabled?'disable':'enable'}</button>
+          <button class="sm danger" onclick="delSched('${s.id}')">del</button></td></tr>`).join('')+`</table>`;
+}
+
+// ---- trash (soft-deleted recon scans) ----
+async function loadTrash(){
+  let list=[];try{list=(await fetch('/api/trash').then(r=>r.json())).filter(j=>j.type==='recon');}catch(e){}
+  const el=$('#trashList');
+  if(!list.length){el.className='muted';el.textContent='Trash is empty.';return;}
+  el.className='';
+  el.innerHTML=`<table><tr><th>Subnet</th><th>Status</th><th>Hosts up</th><th>Open ports</th><th>Deleted from</th><th></th></tr>`+
+    list.map(j=>{const s=j.stats||{};return `<tr>
+      <td>${esc(subnetName(j))}</td>
+      <td><span class="pill p-${j.status}">${esc(j.status)}</span></td>
+      <td class="muted">${s.hosts_up||0}</td><td class="muted">${s.open_ports||0}</td>
+      <td class="muted">${esc(j.created||'')}</td>
+      <td><button class="sm" onclick="restoreScan('${j.id}')">restore</button>
+          <button class="sm danger" onclick="purgeScan('${j.id}','${esc(subnetName(j))}')">delete permanently</button></td></tr>`;}).join('')+`</table>`;
+}
+async function restoreScan(id){
+  await fetch('/api/job/restore',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+  loadTrash();
+}
+async function purgeScan(id,name){
+  if(!confirm('Permanently delete "'+name+'" and its workspace? This cannot be undone.'))return;
+  await fetch('/api/job/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+  loadTrash();
+}
+async function togSched(id){await fetch('/api/schedule/toggle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});loadSchedules();}
+async function delSched(id){await fetch('/api/schedule/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});loadSchedules();}
+
+// ---- preflight ----
+async function loadPreflight(){
+  const p=await fetch('/api/preflight').then(r=>r.json());const s=p.summary,r=p.resources;
+  $('#pfBanner').innerHTML=s.required_ok?`<div class="okbox">✔ All required tools present. Modules ${s.modules_present}/${s.modules_total} · files ${s.files_present}/${s.files_total} · tools ${s.tools_present}/${s.tools_total}.</div>`:`<div class="warnbox">✖ Missing required: ${s.missing_required.join(', ')} — install before scanning.</div>`;
+  $('#pfRes').innerHTML=[[r.cpu_cores,'CPU cores'],[r.ram_gb+' GB','RAM total'],[r.ram_available_gb+' GB','RAM free'],[r.recommended_workers,'Auto workers'],[r.recommended_slots,'Nmap slots'],[r.screenshot_threads,'Snap threads']].map(([n,l])=>`<div class="tile"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+  $('#pfTools').innerHTML=`<table><tr><th></th><th>Tool</th><th>Purpose</th><th>Level</th><th>Path</th></tr>`+p.tools.map(t=>`<tr><td><span class="dot ${t.present?'ok':(t.level==='required'?'bad':'warn')}"></span></td><td>${esc(t.name)}</td><td class="muted">${esc(t.purpose)}</td><td>${esc(t.level)}</td><td class="muted">${esc(t.path||'— not found')}</td></tr>`).join('')+`</table>`;
+  $('#pfModules').innerHTML=p.modules.map(m=>`<div class="cell"><span class="dot ${m.present?'ok':'bad'}"></span><span class="id">${m.id}</span><span class="nm" title="${esc(m.detail)}">${esc(m.name)}</span></div>`).join('');
+  $('#pfFiles').innerHTML=p.files.map(f=>`<div class="cell"><span class="dot ${f.present?'ok':'bad'}"></span><span class="nm">${esc(f.name)}</span></div>`).join('');
+}
+</script>
+</body></html>
